@@ -2,11 +2,15 @@
 
 A powerful single-page Vue 3 application for editing, rendering, validating, and analyzing Mustache-driven JSON in real time.
 
+🚀 **Live Demo**: [https://omniflow-oss.github.io/bff-tools/](https://omniflow-oss.github.io/bff-tools/)
+
 ## Features
 
 - **Real-time rendering**: Live preview of Mustache templates with JSON data
-- **Monaco Editor**: Full-featured code editor with syntax highlighting for JSON, Mustache templates, and schemas
+- **Monaco Editor**: Full-featured code editor with syntax highlighting for JSON and Mustache templates
+- **Individual panel validation**: Validate JSON, Mustache templates, output, and schemas separately
 - **JSON Schema validation**: Validate your output against JSON Schema (draft-07)
+- **JSON Mustache templates**: Support for JSON-structured Mustache templates
 - **Usage analysis**: Find unused variables in JSON data and missing variables in templates
 - **Export functionality**: Download your session as a ZIP file
 - **File/URL loading**: Load content from local files or remote URLs
@@ -16,17 +20,44 @@ A powerful single-page Vue 3 application for editing, rendering, validating, and
 
 ## Getting Started
 
-1. Install dependencies:
+### Online Usage
+
+Visit [https://omniflow-oss.github.io/bff-tools/](https://omniflow-oss.github.io/bff-tools/) to use the application directly in your browser.
+
+### Local Development
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/omniflow-oss/bff-tools.git
+   cd bff-tools
+   ```
+
+2. Install dependencies:
    ```bash
    npm install
    ```
 
-2. Start the development server:
+3. Start the development server:
    ```bash
    npm run dev
    ```
 
-3. Open http://localhost:5173 in your browser
+4. Open http://localhost:5173 in your browser
+
+### Building for Production
+
+```bash
+npm run build
+```
+
+The built files will be in the `dist/` directory.
+
+## Deployment
+
+This project is automatically deployed to GitHub Pages when changes are pushed to the `main` branch. The deployment workflow:
+
+1. Builds the application using Vite
+2. Deploys to GitHub Pages at [https://omniflow-oss.github.io/bff-tools/](https://omniflow-oss.github.io/bff-tools/)
 
 ## Usage
 
@@ -35,18 +66,25 @@ A powerful single-page Vue 3 application for editing, rendering, validating, and
 The application has a 2x2 grid layout with four main panels:
 
 1. **JSON Data** (top-left): Your input data in JSON format
-2. **Mustache Template** (top-right): Your Mustache template
-3. **Output** (bottom-left): Real-time rendered result (read-only)
+2. **Mustache Template** (top-right): Your JSON Mustache template  
+3. **Output** (bottom-left): Real-time rendered JSON result (read-only)
 4. **JSON Schema** (bottom-right): Schema for validating the output
 
 ### Key Features
 
 #### Live Rendering
 - Edit JSON data or Mustache template
-- See the rendered output update automatically
+- See the rendered JSON output update automatically
 - Parse errors are displayed in the error bar
 
-#### Validation
+#### Individual Validation
+- Each panel has its own validate button (🔍 icon)
+- **JSON Data**: Validates JSON syntax
+- **Mustache Template**: Validates JSON structure with Mustache placeholders
+- **Output**: Validates rendered JSON syntax
+- **JSON Schema**: Validates schema syntax
+
+#### Schema Validation
 - Click "Validate" to check output against the JSON schema
 - Validation errors are shown with line numbers and descriptions
 - Supports all JSON Schema draft-07 features
