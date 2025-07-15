@@ -16,7 +16,27 @@ export const useSessionStore = defineStore('session', () => {
   "name": "John Doe",
   "age": 30,
   "email": "john.doe@example.com",
-  "timestamp": "2025-07-15T10:30:00Z"
+  "timestamp": "2025-07-15T10:30:00Z",
+  "organisms": {
+    "org8": {
+      "items": [
+        {
+          "label": "First Item",
+          "thumbnail": {
+            "mediaType": "image/png",
+            "value": "https://example.com/image1.png"
+          }
+        },
+        {
+          "label": "Second Item", 
+          "thumbnail": {
+            "mediaType": "image/jpeg",
+            "value": "https://example.com/image2.jpg"
+          }
+        }
+      ]
+    }
+  }
 }`)
 
   const template = ref(`{
@@ -26,10 +46,18 @@ export const useSessionStore = defineStore('session', () => {
     "name": "{{ name }}",
     "age": {{ age }},
     "email": "{{ email }}",
-    "isAdult": {{#if age}}{{ age }} >= 18{{/if}}
+    "isAdult": {{#age}}true{{/age}}{{^age}}false{{/age}}
   },
   "timestamp": "{{ timestamp }}",
-  "details": "You are {{ age }} years old and your email is {{ email }}"
+  "details": "You are {{ age }} years old and your email is {{ email }}",
+  "hasItems": {{#organisms.org8.items}}true{{/organisms.org8.items}}{{^organisms.org8.items}}false{{/organisms.org8.items}},
+  "firstItem": {{#organisms.org8.items}}{
+    "title": "{{ label }}",
+    "media": {
+      "type": "{{ thumbnail.mediaType }}",
+      "url": "{{ thumbnail.value }}"
+    }
+  }{{/organisms.org8.items}}{{^organisms.org8.items}}null{{/organisms.org8.items}}
 }`)
 
   const output = ref('')
@@ -127,7 +155,27 @@ export const useSessionStore = defineStore('session', () => {
   "name": "John Doe",
   "age": 30,
   "email": "john.doe@example.com",
-  "timestamp": "2025-07-15T10:30:00Z"
+  "timestamp": "2025-07-15T10:30:00Z",
+  "organisms": {
+    "org8": {
+      "items": [
+        {
+          "label": "First Item",
+          "thumbnail": {
+            "mediaType": "image/png",
+            "value": "https://example.com/image1.png"
+          }
+        },
+        {
+          "label": "Second Item", 
+          "thumbnail": {
+            "mediaType": "image/jpeg",
+            "value": "https://example.com/image2.jpg"
+          }
+        }
+      ]
+    }
+  }
 }`
       template.value = `{
   "greeting": "Hello {{ name }}!",
@@ -136,10 +184,18 @@ export const useSessionStore = defineStore('session', () => {
     "name": "{{ name }}",
     "age": {{ age }},
     "email": "{{ email }}",
-    "isAdult": {{#if age}}{{ age }} >= 18{{/if}}
+    "isAdult": {{#age}}true{{/age}}{{^age}}false{{/age}}
   },
   "timestamp": "{{ timestamp }}",
-  "details": "You are {{ age }} years old and your email is {{ email }}"
+  "details": "You are {{ age }} years old and your email is {{ email }}",
+  "hasItems": {{#organisms.org8.items}}true{{/organisms.org8.items}}{{^organisms.org8.items}}false{{/organisms.org8.items}},
+  "firstItem": {{#organisms.org8.items}}{
+    "title": "{{ label }}",
+    "media": {
+      "type": "{{ thumbnail.mediaType }}",
+      "url": "{{ thumbnail.value }}"
+    }
+  }{{/organisms.org8.items}}{{^organisms.org8.items}}null{{/organisms.org8.items}}
 }`
       output.value = ''
       schema.value = `{

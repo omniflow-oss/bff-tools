@@ -1,18 +1,18 @@
 <template>
   <div 
     :class="[
-      'bg-white rounded-2xl shadow-lg p-3 flex flex-col transition-all duration-200',
+      'bg-white rounded-lg shadow-sm border border-gray-100 p-4 flex flex-col transition-all duration-200',
       maximised ? 'fixed inset-0 z-50 h-screen' : 'h-[45vh] lg:h-[42vh]'
     ]"
   >
     <!-- Title Bar -->
-    <div class="flex items-center justify-between mb-3 flex-shrink-0">
-      <h3 class="text-lg font-semibold text-gray-800">{{ title }}</h3>
-      <div class="flex items-center gap-2">
+    <div class="flex items-center justify-between mb-4 flex-shrink-0">
+      <h3 class="text-lg font-light text-gray-900">{{ title }}</h3>
+      <div class="flex items-center gap-1">
         <!-- Validate Button -->
         <button
           @click="$emit('validate')"
-          class="p-2 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+          class="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
           title="Validate"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -23,7 +23,7 @@
         <!-- Format Button -->
         <button
           @click="$emit('format')"
-          class="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+          class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
           title="Format"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,7 +34,7 @@
         <!-- Copy Button -->
         <button
           @click="copyToClipboard"
-          class="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+          class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
           title="Copy to Clipboard"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -46,7 +46,7 @@
         <button
           v-if="allowFile"
           @click="triggerFileInput"
-          class="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+          class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
           title="Load File"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -58,8 +58,8 @@
         <button
           v-if="allowUrl"
           @click="showUrlDialog = true"
-          class="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-          title="Load URL"
+          class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+          title="Load from URL"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.102m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
@@ -69,7 +69,7 @@
         <!-- Maximise Button -->
         <button
           @click="$emit('maximise')"
-          class="p-2 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+          class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
           title="Maximise"
         >
           <svg v-if="!maximised" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

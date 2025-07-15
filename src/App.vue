@@ -1,14 +1,14 @@
 <template>
-  <div class="min-h-screen bg-gray-100 flex flex-col">
+  <div class="min-h-screen bg-gray-50 flex flex-col">
     <!-- Header -->
-    <header class="bg-white shadow-sm border-b border-gray-200 p-4 flex-shrink-0">
+    <header class="bg-white border-b border-gray-100 p-4 flex-shrink-0 shadow-sm">
       <div class="max-w-7xl mx-auto flex items-center justify-between">
-        <h1 class="text-2xl font-bold text-gray-900">Mustache JSON Editor</h1>
+        <h1 class="text-2xl font-light text-gray-900">Mustache JSON Editor</h1>
         <div class="flex items-center gap-3">
           <!-- Action Buttons -->
           <button
             @click="validateOutput"
-            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            class="px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors flex items-center gap-2 font-medium"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -18,7 +18,7 @@
           
           <button
             @click="checkUsage"
-            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+            class="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors flex items-center gap-2 font-medium"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
@@ -28,7 +28,7 @@
           
           <button
             @click="exportSession"
-            class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+            class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-400 transition-colors flex items-center gap-2 font-medium"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -38,7 +38,7 @@
           
           <button
             @click="resetSession"
-            class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+            class="px-4 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors flex items-center gap-2 font-medium border border-red-200"
             title="Reset to defaults (clears localStorage)"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -52,13 +52,13 @@
 
     <!-- Error Bar -->
     <Transition name="slide-down">
-      <div v-if="store.errors.length > 0" class="bg-red-500 text-white p-3 flex-shrink-0">
+      <div v-if="store.errors.length > 0" class="bg-red-50 border-b border-red-100 text-red-800 p-3 flex-shrink-0">
         <div class="max-w-7xl mx-auto">
           <div v-for="(error, index) in store.errors" :key="index" class="flex items-center justify-between mb-1 last:mb-0">
-            <span>{{ error }}</span>
+            <span class="text-sm">{{ error }}</span>
             <button
               @click="store.dismissError(index)"
-              class="ml-4 p-1 hover:bg-red-600 rounded"
+              class="ml-4 p-1 hover:bg-red-100 rounded text-red-600"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -70,11 +70,11 @@
     </Transition>
 
     <!-- Main Content -->
-    <main class="flex-1 p-4 overflow-hidden">
+    <main class="flex-1 p-6 overflow-hidden">
       <div class="max-w-7xl mx-auto h-full">
         <div 
           :class="[
-            'grid gap-4 h-full',
+            'grid gap-6 h-full',
             store.maximisedCard ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2 grid-rows-2 lg:grid-rows-2'
           ]"
         >
@@ -145,26 +145,26 @@
     </main>
 
     <!-- Usage Analysis Modal -->
-    <div v-if="showUsageModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div class="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-hidden">
-        <div class="p-6 border-b border-gray-200">
-          <h3 class="text-lg font-semibold">Variable Usage Analysis</h3>
+    <div v-if="showUsageModal" class="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div class="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden shadow-2xl border border-gray-100">
+        <div class="p-6 border-b border-gray-100">
+          <h3 class="text-xl font-light text-gray-900">Variable Usage Analysis</h3>
         </div>
         <div class="p-6 overflow-y-auto max-h-[60vh]">
-          <div class="grid md:grid-cols-2 gap-6">
+          <div class="grid md:grid-cols-2 gap-8">
             <!-- Missing Variables -->
             <div>
-              <h4 class="font-semibold text-red-600 mb-3 flex items-center">
+              <h4 class="font-medium text-red-600 mb-4 flex items-center">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
                 </svg>
                 Missing Variables ({{ usageAnalysis.missing.length }})
               </h4>
-              <ul class="space-y-1">
-                <li v-for="variable in usageAnalysis.missing" :key="variable" class="text-red-700 bg-red-50 px-2 py-1 rounded">
+              <ul class="space-y-2">
+                <li v-for="variable in usageAnalysis.missing" :key="variable" class="text-red-700 bg-red-50 px-3 py-2 rounded-md text-sm font-mono border border-red-100">
                   {{ variable }}
                 </li>
-                <li v-if="usageAnalysis.missing.length === 0" class="text-gray-500 italic">
+                <li v-if="usageAnalysis.missing.length === 0" class="text-gray-500 italic text-sm">
                   No missing variables found
                 </li>
               </ul>
@@ -172,27 +172,27 @@
             
             <!-- Unused Variables -->
             <div>
-              <h4 class="font-semibold text-yellow-600 mb-3 flex items-center">
+              <h4 class="font-medium text-amber-600 mb-4 flex items-center">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
                 Unused Variables ({{ usageAnalysis.unused.length }})
               </h4>
-              <ul class="space-y-1">
-                <li v-for="variable in usageAnalysis.unused" :key="variable" class="text-yellow-700 bg-yellow-50 px-2 py-1 rounded">
+              <ul class="space-y-2">
+                <li v-for="variable in usageAnalysis.unused" :key="variable" class="text-amber-700 bg-amber-50 px-3 py-2 rounded-md text-sm font-mono border border-amber-100">
                   {{ variable }}
                 </li>
-                <li v-if="usageAnalysis.unused.length === 0" class="text-gray-500 italic">
+                <li v-if="usageAnalysis.unused.length === 0" class="text-gray-500 italic text-sm">
                   All variables are used
                 </li>
               </ul>
             </div>
           </div>
         </div>
-        <div class="p-6 border-t border-gray-200 flex justify-end">
+        <div class="p-6 border-t border-gray-100 flex justify-end">
           <button
             @click="showUsageModal = false"
-            class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            class="px-6 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors font-medium"
           >
             Close
           </button>
