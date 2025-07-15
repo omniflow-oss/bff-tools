@@ -35,6 +35,17 @@
             </svg>
             Export
           </button>
+          
+          <button
+            @click="resetSession"
+            class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+            title="Reset to defaults (clears localStorage)"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            Reset
+          </button>
         </div>
       </div>
     </header>
@@ -78,6 +89,7 @@
             :maximised="store.maximisedCard === 'json'"
             @maximise="toggleMaximise('json')"
             @format="formatCard('json')"
+            @validate="validateCard('json')"
             @error="store.showError"
             ref="jsonCard"
           />
@@ -86,13 +98,14 @@
           <Card
             v-show="!store.maximisedCard || store.maximisedCard === 'template'"
             title="Mustache Template"
-            language="handlebars"
+            language="json"
             v-model="store.template"
             :allow-file="true"
             :allow-url="true"
             :maximised="store.maximisedCard === 'template'"
             @maximise="toggleMaximise('template')"
             @format="formatCard('template')"
+            @validate="validateCard('template')"
             @error="store.showError"
             ref="templateCard"
           />
@@ -101,12 +114,13 @@
           <Card
             v-show="!store.maximisedCard || store.maximisedCard === 'output'"
             title="Output"
-            language="plaintext"
+            language="json"
             v-model="store.output"
             :read-only="true"
             :maximised="store.maximisedCard === 'output'"
             @maximise="toggleMaximise('output')"
             @format="formatCard('output')"
+            @validate="validateCard('output')"
             @error="store.showError"
             ref="outputCard"
           />
@@ -122,6 +136,7 @@
             :maximised="store.maximisedCard === 'schema'"
             @maximise="toggleMaximise('schema')"
             @format="formatCard('schema')"
+            @validate="validateCard('schema')"
             @error="store.showError"
             ref="schemaCard"
           />
@@ -191,7 +206,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { useSessionStore } from '@/stores/session'
 import { renderTemplate } from '@/utils/render'
-import { validateJSON } from '@/utils/validate'
+import { validateJSON as validateJSONSchema } from '@/utils/validate'
 import { analyzeUsage, type AnalysisResult } from '@/utils/analysis'
 import { formatJSON, formatMustache, formatSchema } from '@/utils/format'
 import { exportSession as exportZip } from '@/utils/zip'
@@ -213,16 +228,26 @@ const usageAnalysis = ref<AnalysisResult>({ unused: [], missing: [] })
 // Debounced render function
 const debouncedRender = debounce(() => {
   try {
+    // Clear previous errors
+    store.clearErrors()
+    
+    // Validate JSON before rendering
+    try {
+      JSON.parse(store.json)
+    } catch (jsonError) {
+      store.showError(`Invalid JSON: ${jsonError instanceof Error ? jsonError.message : 'Parse error'}`)
+      return
+    }
+    
     const rendered = renderTemplate(store.template, store.json)
     store.output = rendered
-    store.clearErrors()
   } catch (error) {
     store.showError(error instanceof Error ? error.message : 'Rendering failed')
   }
 }, 250)
 
 // Watch for changes and re-render
-watch([() => store.json, () => store.template], debouncedRender, { immediate: true })
+watch([() => store.json, () => store.template], debouncedRender)
 
 // Keyboard shortcuts
 useKeyboard({
@@ -248,7 +273,7 @@ const toggleMaximise = (cardId: string) => {
   }
 }
 
-const formatCard = async (cardType: string) => {
+const formatCard = (cardType: string) => {
   try {
     switch (cardType) {
       case 'json':
@@ -277,28 +302,186 @@ const formatCard = async (cardType: string) => {
 
 const validateOutput = () => {
   try {
-    const errors = validateJSON(store.output, store.schema)
+    store.clearErrors()
+    outputCard.value?.clearValidationErrors()
+    
+    const errors = validateJSONSchema(store.output, store.schema)
     
     if (errors.length === 0) {
       store.showError('✅ Validation passed!')
       setTimeout(() => store.clearErrors(), 3000)
     } else {
+      // Show errors in notification bar
       errors.forEach(error => {
-        store.showError(`${error.path}: ${error.message}`)
+        const errorMsg = `Line ${error.line}:${error.column} - ${error.message} (${error.path})`
+        store.showError(errorMsg)
       })
+      
+      // Highlight errors in Monaco Editor
+      outputCard.value?.setValidationErrors(errors)
     }
   } catch (error) {
     store.showError(error instanceof Error ? error.message : 'Validation failed')
   }
 }
 
+const validateCard = (cardType: 'json' | 'template' | 'output' | 'schema') => {
+  try {
+    let cardRef: any
+    let content: string
+    let cardName: string
+    
+    switch (cardType) {
+      case 'json':
+        cardRef = jsonCard.value
+        content = store.json
+        cardName = 'JSON Data'
+        break
+      case 'template':
+        cardRef = templateCard.value
+        content = store.template
+        cardName = 'Mustache Template'
+        break
+      case 'output':
+        cardRef = outputCard.value
+        content = store.output
+        cardName = 'Output'
+        break
+      case 'schema':
+        cardRef = schemaCard.value
+        content = store.schema
+        cardName = 'JSON Schema'
+        break
+    }
+    
+    cardRef?.clearValidationErrors()
+    store.clearErrors()
+    
+    try {
+      if (cardType === 'template') {
+        // For Mustache templates, we validate if it's valid JSON structure
+        // but allow Mustache syntax within string values
+        validateMustacheTemplate(content)
+        store.showError(`✅ ${cardName} is valid!`)
+      } else {
+        // For JSON validation
+        JSON.parse(content)
+        store.showError(`✅ ${cardName} is valid JSON!`)
+      }
+      
+      setTimeout(() => store.clearErrors(), 3000)
+    } catch (error) {
+      const errorMsg = `❌ ${cardName} validation failed: ${error instanceof Error ? error.message : 'Invalid format'}`
+      store.showError(errorMsg)
+      
+      // Try to find the line number for the error
+      const lineNumber = findErrorLine(content, error instanceof Error ? error.message : '')
+      
+      // Highlight error in Monaco Editor
+      cardRef?.setValidationErrors([{
+        line: lineNumber,
+        column: 1,
+        message: error instanceof Error ? error.message : 'Validation error',
+        path: 'root',
+        severity: 'error'
+      }])
+    }
+  } catch (error) {
+    store.showError(error instanceof Error ? error.message : 'Validation failed')
+  }
+}
+
+const validateMustacheTemplate = (template: string) => {
+  // Check if it's a valid JSON structure with Mustache placeholders
+  // We'll temporarily replace Mustache placeholders with valid JSON values
+  const tempTemplate = template
+    .replace(/\{\{[^}]+\}\}/g, '"__PLACEHOLDER__"') // Replace {{var}} with placeholder
+    .replace(/\{\{\{[^}]+\}\}\}/g, '"__PLACEHOLDER__"') // Replace {{{var}}} with placeholder
+    .replace(/\{\{#[^}]+\}\}[\s\S]*?\{\{\/[^}]+\}\}/g, '"__PLACEHOLDER__"') // Replace {{#each}} blocks
+    .replace(/\{\{\^[^}]+\}\}[\s\S]*?\{\{\/[^}]+\}\}/g, '"__PLACEHOLDER__"') // Replace {{^if}} blocks
+  
+  // Now validate as JSON
+  JSON.parse(tempTemplate)
+}
+
+const findErrorLine = (content: string, errorMessage: string): number => {
+  // Try to extract line number from error message
+  const lineMatch = errorMessage.match(/line (\d+)/i)
+  if (lineMatch) {
+    return parseInt(lineMatch[1])
+  }
+  
+  // If no line number in error, try to find position
+  const posMatch = errorMessage.match(/position (\d+)/i)
+  if (posMatch) {
+    const position = parseInt(posMatch[1])
+    const lines = content.substring(0, position).split('\n')
+    return lines.length
+  }
+  
+  return 1
+}
+
 const checkUsage = () => {
   try {
+    // Clear previous highlights
+    jsonCard.value?.clearValidationErrors()
+    templateCard.value?.clearValidationErrors()
+    
     usageAnalysis.value = analyzeUsage(store.json, store.template)
+    
+    // Highlight unused variables in JSON editor
+    if (usageAnalysis.value.unused.length > 0) {
+      const unusedErrors = usageAnalysis.value.unused.map(variable => ({
+        line: findVariableLineInJSON(store.json, variable),
+        column: 1,
+        message: `Unused variable: ${variable}`,
+        path: variable,
+        severity: 'warning'
+      }))
+      jsonCard.value?.setValidationErrors(unusedErrors)
+    }
+    
+    // Highlight missing variables in template editor
+    if (usageAnalysis.value.missing.length > 0) {
+      const missingErrors = usageAnalysis.value.missing.map(variable => ({
+        line: findVariableLineInTemplate(store.template, variable),
+        column: 1,
+        message: `Missing variable: ${variable}`,
+        path: variable,
+        severity: 'error'
+      }))
+      templateCard.value?.setValidationErrors(missingErrors)
+    }
+    
     showUsageModal.value = true
   } catch (error) {
     store.showError(error instanceof Error ? error.message : 'Usage analysis failed')
   }
+}
+
+const findVariableLineInJSON = (json: string, variable: string): number => {
+  const lines = json.split('\n')
+  const varName = variable.split('.')[0] // Get root property name
+  
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes(`"${varName}"`)) {
+      return i + 1
+    }
+  }
+  return 1
+}
+
+const findVariableLineInTemplate = (template: string, variable: string): number => {
+  const lines = template.split('\n')
+  const varName = variable.split('.').pop() || variable // Get leaf property name
+  
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes(`{{${varName}}}`) || lines[i].includes(`{{ ${varName} }}`)) {
+      return i + 1
+    }
+  }
+  return 1
 }
 
 const exportSession = async () => {
@@ -309,9 +492,23 @@ const exportSession = async () => {
   }
 }
 
+const resetSession = () => {
+  try {
+    store.clearStorage()
+    // Trigger a re-render after clearing
+    setTimeout(() => {
+      debouncedRender()
+    }, 100)
+  } catch (error) {
+    store.showError(error instanceof Error ? error.message : 'Reset failed')
+  }
+}
+
 onMounted(() => {
-  // Initial render
-  debouncedRender()
+  // Give a small delay to ensure localStorage is loaded
+  setTimeout(() => {
+    debouncedRender()
+  }, 100)
 })
 </script>
 

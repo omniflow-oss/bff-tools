@@ -9,6 +9,17 @@
     <div class="flex items-center justify-between mb-3 flex-shrink-0">
       <h3 class="text-lg font-semibold text-gray-800">{{ title }}</h3>
       <div class="flex items-center gap-2">
+        <!-- Validate Button -->
+        <button
+          @click="$emit('validate')"
+          class="p-2 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+          title="Validate"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </button>
+        
         <!-- Format Button -->
         <button
           @click="$emit('format')"
@@ -17,6 +28,17 @@
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+          </svg>
+        </button>
+        
+        <!-- Copy Button -->
+        <button
+          @click="copyToClipboard"
+          class="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+          title="Copy to Clipboard"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
           </svg>
         </button>
         
@@ -128,10 +150,11 @@ type Emits = {
   'update:modelValue': [value: string]
   'maximise': []
   'format': []
+  'validate': []
   'error': [message: string]
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   readOnly: false,
   allowUrl: false,
   allowFile: false,
@@ -183,11 +206,27 @@ const loadFromUrl = async () => {
   }
 }
 
+const copyToClipboard = async () => {
+  try {
+    await navigator.clipboard.writeText(props.modelValue)
+    // You could emit a success message here if needed
+    emit('error', '✅ Copied to clipboard!')
+    // Clear the success message after a delay
+    setTimeout(() => {
+      // This would need to be handled by the parent component
+    }, 2000)
+  } catch (error) {
+    emit('error', `Failed to copy: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+}
+
 // Expose editor methods
 defineExpose({
   format: () => editorRef.value?.format(),
   focus: () => editorRef.value?.focus(),
   addDecorations: (decorations: any[]) => editorRef.value?.addDecorations(decorations),
-  removeDecorations: (decorationIds: string[]) => editorRef.value?.removeDecorations(decorationIds)
+  removeDecorations: (decorationIds: string[]) => editorRef.value?.removeDecorations(decorationIds),
+  setValidationErrors: (errors: any[]) => editorRef.value?.setValidationErrors(errors),
+  clearValidationErrors: () => editorRef.value?.clearValidationErrors()
 })
 </script>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mustache JSON Editor - Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-case {
+            background: #f5f5f5;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #007acc;
+        }
+        .test-case h3 {
+            margin-top: 0;
+            color: #007acc;
+        }
+        pre {
+            background: #2d3748;
+            color: #f7fafc;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .feature {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.implemented { background: #c6f6d5; color: #22543d; }
+        .status.todo { background: #fed7d7; color: #742a2a; }
+    </style>
+</head>
+<body>
+    <h1>🎯 Mustache JSON Editor - Test Guide</h1>
+    
+    <p>This page provides test cases and examples to verify all features of the Mustache JSON Editor are working correctly.</p>
+    
+    <h2>🔧 Features Status</h2>
+    <div class="feature-list">
+        <div class="feature">
+            <h4>✅ Core Functionality</h4>
+            <span class="status implemented">IMPLEMENTED</span>
+            <ul>
+                <li>Live Mustache rendering</li>
+                <li>Monaco Editor integration</li>
+                <li>Responsive grid layout</li>
+                <li>State persistence</li>
+            </ul>
+        </div>
+        
+        <div class="feature">
+            <h4>✅ Validation & Analysis</h4>
+            <span class="status implemented">IMPLEMENTED</span>
+            <ul>
+                <li>JSON Schema validation</li>
+                <li>Variable usage analysis</li>
+                <li>Error reporting</li>
+                <li>Syntax highlighting</li>
+            </ul>
+        </div>
+        
+        <div class="feature">
+            <h4>✅ Import/Export</h4>
+            <span class="status implemented">IMPLEMENTED</span>
+            <ul>
+                <li>File loading</li>
+                <li>URL loading</li>
+                <li>ZIP export</li>
+                <li>Session persistence</li>
+            </ul>
+        </div>
+        
+        <div class="feature">
+            <h4>✅ UI/UX</h4>
+            <span class="status implemented">IMPLEMENTED</span>
+            <ul>
+                <li>Panel maximization</li>
+                <li>Keyboard shortcuts</li>
+                <li>Error notifications</li>
+                <li>Mobile responsive</li>
+            </ul>
+        </div>
+    </div>
+
+    <h2>🧪 Test Cases</h2>
+
+    <div class="test-case">
+        <h3>1. Basic Template Rendering</h3>
+        <p><strong>Test:</strong> Verify that basic Mustache template rendering works</p>
+        
+        <h4>JSON Data:</h4>
+        <pre>{
+  "user": {
+    "name": "Alice Smith",
+    "age": 28,
+    "location": "San Francisco"
+  },
+  "company": "Tech Corp"
+}</pre>
+
+        <h4>Mustache Template:</h4>
+        <pre>Hello {{user.name}}!
+
+Welcome to {{company}}. 
+You are {{user.age}} years old and located in {{user.location}}.
+
+{{#user}}
+Profile: {{name}} ({{age}})
+{{/user}}</pre>
+
+        <h4>Expected Output:</h4>
+        <pre>Hello Alice Smith!
+
+Welcome to Tech Corp. 
+You are 28 years old and located in San Francisco.
+
+Profile: Alice Smith (28)</pre>
+    </div>
+
+    <div class="test-case">
+        <h3>2. Array Iteration</h3>
+        <p><strong>Test:</strong> Verify array/list rendering with sections</p>
+        
+        <h4>JSON Data:</h4>
+        <pre>{
+  "title": "Shopping List",
+  "items": [
+    {"name": "Apples", "quantity": 5, "urgent": true},
+    {"name": "Bread", "quantity": 1, "urgent": false},
+    {"name": "Milk", "quantity": 2, "urgent": true}
+  ],
+  "total": 3
+}</pre>
+
+        <h4>Mustache Template:</h4>
+        <pre>{{title}}
+=============
+
+{{#items}}
+- {{name}} (qty: {{quantity}}){{#urgent}} ⚠️ URGENT{{/urgent}}
+{{/items}}
+
+Total items: {{total}}</pre>
+
+        <h4>Expected Output:</h4>
+        <pre>Shopping List
+=============
+
+- Apples (qty: 5) ⚠️ URGENT
+- Bread (qty: 1)
+- Milk (qty: 2) ⚠️ URGENT
+
+Total items: 3</pre>
+    </div>
+
+    <div class="test-case">
+        <h3>3. JSON Schema Validation</h3>
+        <p><strong>Test:</strong> Verify JSON Schema validation catches errors</p>
+        
+        <h4>JSON Schema:</h4>
+        <pre>{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "user": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "age": {"type": "number", "minimum": 0, "maximum": 150},
+        "email": {"type": "string", "format": "email"}
+      },
+      "required": ["name", "age", "email"]
+    }
+  },
+  "required": ["user"]
+}</pre>
+
+        <p><strong>This should FAIL validation</strong> when the output doesn't match the schema (e.g., missing email field or invalid age).</p>
+    </div>
+
+    <div class="test-case">
+        <h3>4. Usage Analysis</h3>
+        <p><strong>Test:</strong> Verify variable usage analysis works</p>
+        
+        <h4>JSON Data with unused variables:</h4>
+        <pre>{
+  "name": "John",
+  "age": 30,
+  "email": "john@example.com",
+  "phone": "555-1234",
+  "address": "123 Main St"
+}</pre>
+
+        <h4>Template using only some variables:</h4>
+        <pre>Hello {{name}}!
+You are {{age}} years old.
+Contact: {{email}}</pre>
+
+        <p><strong>Expected Analysis:</strong></p>
+        <ul>
+            <li><strong>Unused:</strong> phone, address</li>
+            <li><strong>Missing:</strong> (none)</li>
+        </ul>
+    </div>
+
+    <h2>🔄 Manual Testing Steps</h2>
+    
+    <ol>
+        <li><strong>Load the application</strong> at <a href="http://localhost:5173" target="_blank">http://localhost:5173</a></li>
+        <li><strong>Test live rendering:</strong> Edit JSON data or template and verify output updates automatically</li>
+        <li><strong>Test formatting:</strong> Click format buttons to prettify code</li>
+        <li><strong>Test validation:</strong> Click "Validate" button with valid/invalid schemas</li>
+        <li><strong>Test usage analysis:</strong> Click "Check Usage" to see variable analysis</li>
+        <li><strong>Test export:</strong> Click "Export" to download ZIP file</li>
+        <li><strong>Test file loading:</strong> Use file button to load JSON/template files</li>
+        <li><strong>Test URL loading:</strong> Use URL button to load remote content</li>
+        <li><strong>Test maximization:</strong> Click maximize button on any panel</li>
+        <li><strong>Test keyboard shortcuts:</strong> Try Cmd/Ctrl+Shift+F for formatting, ESC for closing</li>
+        <li><strong>Test mobile:</strong> Resize browser to mobile width and verify layout</li>
+        <li><strong>Test persistence:</strong> Reload page and verify content is restored</li>
+    </ol>
+
+    <h2>🐛 Common Issues & Solutions</h2>
+    
+    <div class="test-case">
+        <h3>Monaco Editor not loading</h3>
+        <p><strong>Solution:</strong> Check browser console for worker loading errors. Ensure Vite dev server is running.</p>
+    </div>
+
+    <div class="test-case">
+        <h3>Template not rendering</h3>
+        <p><strong>Solution:</strong> Check JSON syntax is valid. Look for error messages in the red error bar.</p>
+    </div>
+
+    <div class="test-case">
+        <h3>Export not working</h3>
+        <p><strong>Solution:</strong> Ensure browser allows downloads. Check browser's download settings.</p>
+    </div>
+
+    <footer style="margin-top: 50px; text-align: center; color: #666;">
+        <p>🎉 All features implemented and ready for testing!</p>
+        <p>Built with Vue 3 + Vite + TailwindCSS + Monaco Editor</p>
+    </footer>
+</body>
+</html>

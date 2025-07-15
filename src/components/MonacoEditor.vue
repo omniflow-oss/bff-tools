@@ -4,7 +4,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import * as monaco from 'monaco-editor'
+import { monaco } from '@/utils/monaco'
 
 interface Props {
   modelValue: string
@@ -24,24 +24,12 @@ const emit = defineEmits<Emits>()
 
 const editorContainer = ref<HTMLElement>()
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
+let isUpdatingFromExternal = false
 
 onMounted(async () => {
   await nextTick()
   
   if (!editorContainer.value) return
-
-  // Configure Monaco workers
-  self.MonacoEnvironment = {
-    getWorkerUrl: function (moduleId, label) {
-      if (label === 'json') {
-        return '/monaco-editor/min/vs/language/json/json.worker.js'
-      }
-      if (label === 'typescript' || label === 'javascript') {
-        return '/monaco-editor/min/vs/language/typescript/ts.worker.js'
-      }
-      return '/monaco-editor/min/vs/editor/editor.worker.js'
-    }
-  }
 
   editor = monaco.editor.create(editorContainer.value, {
     value: props.modelValue,
@@ -53,12 +41,13 @@ onMounted(async () => {
     fontSize: 14,
     lineNumbers: 'on',
     wordWrap: 'on',
-    automaticLayout: true
+    automaticLayout: true,
+    glyphMargin: true
   })
 
   // Listen for content changes
   editor.onDidChangeModelContent(() => {
-    if (editor) {
+    if (editor && !isUpdatingFromExternal) {
       emit('update:modelValue', editor.getValue())
     }
   })
@@ -67,7 +56,9 @@ onMounted(async () => {
 // Watch for external changes
 watch(() => props.modelValue, (newValue) => {
   if (editor && editor.getValue() !== newValue) {
+    isUpdatingFromExternal = true
     editor.setValue(newValue)
+    isUpdatingFromExternal = false
   }
 })
 
@@ -114,6 +105,109 @@ defineExpose({
     if (editor) {
       editor.deltaDecorations(decorationIds, [])
     }
+  },
+  setValidationErrors: (errors: any[]) => {
+    if (editor) {
+      const decorations = errors.map(error => {
+        const isWarning = error.severity === 'warning'
+        return {
+          range: new monaco.Range(error.line, error.column, error.line, error.column + 15),
+          options: {
+            isWholeLine: false,
+            className: isWarning ? 'validation-warning-line' : 'validation-error-line',
+            glyphMarginClassName: isWarning ? 'validation-warning-glyph' : 'validation-error-glyph',
+            hoverMessage: { 
+              value: `**${isWarning ? 'WARNING' : 'ERROR'}**: ${error.message}\n\nPath: \`${error.path}\`` 
+            },
+            minimap: {
+              color: isWarning ? '#ffaa00' : '#ff4444',
+              position: monaco.editor.MinimapPosition.Inline
+            },
+            overviewRuler: {
+              color: isWarning ? '#ffaa00' : '#ff4444',
+              position: monaco.editor.OverviewRulerLane.Right
+            },
+            inlineClassName: isWarning ? 'validation-warning-inline' : 'validation-error-inline'
+          }
+        }
+      })
+      
+      // Remove old decorations and add new ones
+      const oldDecorations = (editor as any)._validationDecorations || []
+      const newDecorations = editor.deltaDecorations(oldDecorations, decorations)
+      ;(editor as any)._validationDecorations = newDecorations
+    }
+  },
+  clearValidationErrors: () => {
+    if (editor) {
+      const oldDecorations = (editor as any)._validationDecorations || []
+      editor.deltaDecorations(oldDecorations, [])
+      ;(editor as any)._validationDecorations = []
+    }
   }
 })
 </script>
+
+<style>
+/* Validation error styles */
+.validation-error-line {
+  background: rgba(255, 68, 68, 0.1);
+  border-left: 3px solid #ff4444;
+}
+
+.validation-error-glyph {
+  background: #ff4444;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50%;
+  position: relative;
+}
+
+.validation-error-glyph::after {
+  content: '!';
+  color: white;
+  font-weight: bold;
+  font-size: 12px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.validation-error-inline {
+  text-decoration: underline;
+  text-decoration-color: #ff4444;
+  text-decoration-style: wavy;
+}
+
+/* Validation warning styles */
+.validation-warning-line {
+  background: rgba(255, 170, 0, 0.1);
+  border-left: 3px solid #ffaa00;
+}
+
+.validation-warning-glyph {
+  background: #ffaa00;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50%;
+  position: relative;
+}
+
+.validation-warning-glyph::after {
+  content: '⚠';
+  color: white;
+  font-weight: bold;
+  font-size: 10px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.validation-warning-inline {
+  text-decoration: underline;
+  text-decoration-color: #ffaa00;
+  text-decoration-style: dotted;
+}
+</style>

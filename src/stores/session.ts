@@ -15,18 +15,22 @@ export const useSessionStore = defineStore('session', () => {
   const json = ref(`{
   "name": "John Doe",
   "age": 30,
-  "email": "john@example.com",
-  "hobbies": ["reading", "coding", "gaming"]
+  "email": "john.doe@example.com",
+  "timestamp": "2025-07-15T10:30:00Z"
 }`)
 
-  const template = ref(`Hello {{name}}!
-
-You are {{age}} years old and your email is {{email}}.
-
-Your hobbies:
-{{#hobbies}}
-- {{.}}
-{{/hobbies}}`)
+  const template = ref(`{
+  "greeting": "Hello {{ name }}!",
+  "message": "Welcome to our service",
+  "user": {
+    "name": "{{ name }}",
+    "age": {{ age }},
+    "email": "{{ email }}",
+    "isAdult": {{#if age}}{{ age }} >= 18{{/if}}
+  },
+  "timestamp": "{{ timestamp }}",
+  "details": "You are {{ age }} years old and your email is {{ email }}"
+}`)
 
   const output = ref('')
   
@@ -57,10 +61,28 @@ Your hobbies:
       const stored = localStorage.getItem('mustache-session')
       if (stored) {
         const data = JSON.parse(stored)
-        json.value = data.json || json.value
+        
+        // Validate that the loaded JSON is parseable before setting it
+        if (data.json) {
+          try {
+            JSON.parse(data.json)
+            json.value = data.json
+          } catch (e) {
+            console.warn('Invalid JSON in localStorage, using default:', e)
+          }
+        }
+        
+        if (data.schema) {
+          try {
+            JSON.parse(data.schema)
+            schema.value = data.schema
+          } catch (e) {
+            console.warn('Invalid schema in localStorage, using default:', e)
+          }
+        }
+        
         template.value = data.template || template.value
         output.value = data.output || output.value
-        schema.value = data.schema || schema.value
       }
     } catch (e) {
       console.warn('Failed to load from localStorage:', e)
@@ -97,6 +119,52 @@ Your hobbies:
     errors.value = []
   }
 
+  const clearStorage = () => {
+    try {
+      localStorage.removeItem('mustache-session')
+      // Reset to default values
+      json.value = `{
+  "name": "John Doe",
+  "age": 30,
+  "email": "john.doe@example.com",
+  "timestamp": "2025-07-15T10:30:00Z"
+}`
+      template.value = `{
+  "greeting": "Hello {{ name }}!",
+  "message": "Welcome to our service",
+  "user": {
+    "name": "{{ name }}",
+    "age": {{ age }},
+    "email": "{{ email }}",
+    "isAdult": {{#if age}}{{ age }} >= 18{{/if}}
+  },
+  "timestamp": "{{ timestamp }}",
+  "details": "You are {{ age }} years old and your email is {{ email }}"
+}`
+      output.value = ''
+      schema.value = `{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "age": {
+      "type": "number"
+    },
+    "email": {
+      "type": "string",
+      "format": "email"
+    }
+  },
+  "required": ["name", "age", "email"]
+}`
+      clearErrors()
+    } catch (e) {
+      console.warn('Failed to clear localStorage:', e)
+    }
+  }
+
   const setMaximisedCard = (cardId: string | null) => {
     maximisedCard.value = cardId
   }
@@ -114,6 +182,7 @@ Your hobbies:
     showError,
     dismissError,
     clearErrors,
-    setMaximisedCard
+    setMaximisedCard,
+    clearStorage
   }
 })

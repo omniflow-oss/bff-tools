@@ -1,15 +1,8 @@
-import * as prettier from 'prettier/standalone'
-import * as babelParser from 'prettier/parser-babel'
-
 export const formatJSON = (json: string): string => {
   try {
-    return prettier.format(json, {
-      parser: 'json',
-      plugins: [babelParser],
-      tabWidth: 2,
-      semi: false,
-      singleQuote: true
-    })
+    // Parse and stringify with proper indentation
+    const parsed = JSON.parse(json)
+    return JSON.stringify(parsed, null, 2)
   } catch (error) {
     throw new Error(`JSON formatting failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
@@ -17,20 +10,121 @@ export const formatJSON = (json: string): string => {
 
 export const formatMustache = (template: string): string => {
   try {
-    // Simple formatting for Mustache templates
-    // Since prettier doesn't have a handlebars parser in standalone, we'll do basic formatting
-    return template
-      .split('\n')
-      .map(line => line.trim())
-      .join('\n')
-      .replace(/\{\{/g, '{{ ')
-      .replace(/\}\}/g, ' }}')
-      .replace(/\{\{#/g, '{{#')
-      .replace(/\{\{\//g, '{{/')
-      .replace(/\s+\}\}/g, '}}')
+    // For JSON Mustache templates, we need to handle them as JSON with Mustache placeholders
+    
+    // First, temporarily replace Mustache placeholders with valid JSON placeholders
+    const placeholders = new Map<string, string>()
+    let placeholderIndex = 0
+    
+    // Replace different types of Mustache syntax
+    let tempTemplate = template
+      // Replace {{variable}} with temporary placeholders
+      .replace(/\{\{([^#/^!>][^}]*)\}\}/g, (match) => {
+        const placeholder = `"__PLACEHOLDER_${placeholderIndex++}__"`
+        placeholders.set(placeholder, match)
+        return placeholder
+      })
+      // Replace {{{variable}}} (unescaped) with temporary placeholders  
+      .replace(/\{\{\{([^}]+)\}\}\}/g, (match) => {
+        const placeholder = `"__PLACEHOLDER_${placeholderIndex++}__"`
+        placeholders.set(placeholder, match)
+        return placeholder
+      })
+      // Replace block helpers {{#each}}...{{/each}}
+      .replace(/\{\{#([^}]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (match) => {
+        const placeholder = `"__BLOCK_${placeholderIndex++}__"`
+        placeholders.set(placeholder, match)
+        return placeholder
+      })
+      // Replace inverted sections {{^if}}...{{/if}}
+      .replace(/\{\{\^([^}]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (match) => {
+        const placeholder = `"__BLOCK_${placeholderIndex++}__"`
+        placeholders.set(placeholder, match)
+        return placeholder
+      })
+
+    try {
+      // Try to format as JSON
+      const parsed = JSON.parse(tempTemplate)
+      tempTemplate = JSON.stringify(parsed, null, 2)
+    } catch {
+      // If it's not valid JSON even with placeholders, fall back to basic formatting
+      return formatMustacheAsTemplate(template)
+    }
+
+    // Restore Mustache placeholders with proper formatting
+    placeholders.forEach((original, placeholder) => {
+      if (original.includes('\n')) {
+        // For block helpers, maintain the block structure
+        tempTemplate = tempTemplate.replace(placeholder, original)
+      } else {
+        // For simple variables, add spacing for readability
+        const cleaned = original.replace(/\{\{([^{}]+)\}\}/g, (_, content) => {
+          const trimmed = content.trim()
+          if (trimmed.startsWith('#') || trimmed.startsWith('/') || trimmed.startsWith('^')) {
+            return `{{${trimmed}}}`
+          }
+          return `{{ ${trimmed} }}`
+        })
+        tempTemplate = tempTemplate.replace(`"${placeholder}"`, cleaned)
+      }
+    })
+
+    return tempTemplate
   } catch (error) {
     throw new Error(`Template formatting failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
+}
+
+// Fallback function for non-JSON Mustache templates
+const formatMustacheAsTemplate = (template: string): string => {
+  const lines = template.split(/\r?\n/)
+  let indentationLevel = 0
+  const formatted: string[] = []
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed) {
+      formatted.push('')
+      continue
+    }
+
+    // Decrease indentation for closing tags
+    if (trimmed.startsWith('{{/')) {
+      indentationLevel = Math.max(indentationLevel - 1, 0)
+    }
+    
+    // Handle {{else}} tags
+    if (trimmed.startsWith('{{else}}') || trimmed.startsWith('{{ else }}')) {
+      const tempIndent = Math.max(indentationLevel - 1, 0)
+      formatted.push(`${'  '.repeat(tempIndent)}{{else}}`)
+      continue
+    }
+
+    // Add current line with proper indentation
+    formatted.push(`${'  '.repeat(indentationLevel)}${cleanMustacheSpacing(trimmed)}`)
+
+    // Increase indentation for opening tags
+    if (trimmed.startsWith('{{#') || trimmed.startsWith('{{^')) {
+      indentationLevel++
+    }
+  }
+
+  return formatted.join('\n')
+}
+
+// Helper function to clean up Mustache tag spacing
+const cleanMustacheSpacing = (line: string): string => {
+  return line
+    // Add spaces inside mustache tags for readability
+    .replace(/\{\{([^{}]+)\}\}/g, (_, content) => {
+      const cleaned = content.trim()
+      // Don't add extra spaces for certain patterns
+      if (cleaned.startsWith('#') || cleaned.startsWith('/') || cleaned.startsWith('^') || cleaned === 'else') {
+        return `{{${cleaned}}}`
+      }
+      return `{{ ${cleaned} }}`
+    })
 }
 
 export const formatSchema = (schema: string): string => {
