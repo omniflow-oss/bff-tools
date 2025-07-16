@@ -1,4 +1,5 @@
 import Mustache from 'mustache'
+import proxyData from 'mustache-validator'
 
 export interface AnalysisResult {
   unused: string[]
@@ -9,47 +10,42 @@ export const analyzeUsage = (jsonData: string, template: string): AnalysisResult
   try {
     const data = JSON.parse(jsonData)
     
-    const jsonPaths = collectJsonPaths(data)
+    // Track all JSON paths available in the data
+    const allJsonPaths = collectJsonPaths(data)
+    
+    // Track missing variables (paths requested but not found in data)
+    const missingPaths: string[] = []
+    
+    // Create proxy data with validation to detect missing paths
+    const safeData = proxyData(data, {
+      handleError: (path: string[]) => {
+        const pathStr = path.join('.')
+        missingPaths.push(pathStr)
+      }
+    })
+
+    // Try to render the template to trigger the proxy validation
+    try {
+      Mustache.render(template, safeData)
+    } catch (e) {
+      // Template failed, but we still have the missing paths data
+      console.warn("Template rendering failed:", e instanceof Error ? e.message : String(e))
+    }
+
+    // Get template variables manually using Mustache parser
     const templateVars = collectMustacheVars(template)
     
-    // Use conservative matching: exact match and simple context-aware matching
-    const unused = [...jsonPaths].filter(path => !isPathUsedConservatively(path, templateVars))
-    const missing = [...templateVars].filter(path => !jsonPaths.has(path))
+    // Calculate unused paths (available in JSON but not referenced in template)
+    const unused = [...allJsonPaths].filter(path => !templateVars.has(path))
     
-    return { unused, missing }
+    return { 
+      unused,
+      missing: missingPaths
+    }
   } catch (error) {
     console.warn('Analysis failed:', error)
     return { unused: [], missing: [] }
   }
-}
-
-function isPathUsedConservatively(jsonPath: string, templateVars: Set<string>): boolean {
-  // Direct match
-  if (templateVars.has(jsonPath)) {
-    return true
-  }
-  
-  // Conservative context matching: only match if the json path suffix 
-  // matches a template variable AND there's a clear context that exists
-  const jsonParts = jsonPath.split('.')
-  
-  for (const templateVar of templateVars) {
-    const templateParts = templateVar.split('.')
-    
-    // Simple suffix matching for nested contexts
-    if (templateParts.length < jsonParts.length) {
-      const jsonSuffix = jsonParts.slice(-templateParts.length).join('.')
-      if (jsonSuffix === templateVar) {
-        // Check if the prefix forms a valid context
-        const contextPath = jsonParts.slice(0, jsonParts.length - templateParts.length).join('.')
-        if (templateVars.has(contextPath)) {
-          return true
-        }
-      }
-    }
-  }
-  
-  return false
 }
 
 function collectJsonPaths(obj: any, prefix = ''): Set<string> {
@@ -57,11 +53,15 @@ function collectJsonPaths(obj: any, prefix = ''): Set<string> {
   if (typeof obj !== 'object' || obj === null) return paths
 
   if (Array.isArray(obj)) {
-    // For arrays, don't include numeric indices in paths
-    // Instead, process the first item to get the structure
+    // For arrays, add the array path itself
+    if (prefix) {
+      paths.add(prefix)
+    }
+    // Process the first item to get the structure (typical array pattern)
     if (obj.length > 0) {
-      // Recursively collect paths from the first array item
-      collectJsonPaths(obj[0], prefix).forEach(p => paths.add(p))
+      collectJsonPaths(obj[0], prefix).forEach(p => {
+        if (p !== prefix) paths.add(p) // Avoid duplicating the array path
+      })
     }
   } else {
     // For objects, process each property
