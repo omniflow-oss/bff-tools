@@ -8,22 +8,13 @@ export interface AnalysisResult {
 export const analyzeUsage = (jsonData: string, template: string): AnalysisResult => {
   try {
     const data = JSON.parse(jsonData)
-    const tokens = Mustache.parse(template)
     
-    const usedKeys = new Set<string>()
-    const missingKeys = new Set<string>()
+    const jsonPaths = collectJsonPaths(data)
+    const templateVars = collectMustacheVars(template)
     
-    // Extract used variables from template with proper context scoping
-    extractVariablesWithContext(tokens, usedKeys, missingKeys, data, data, '')
-    
-    // Find all keys in JSON data
-    const allKeys = new Set<string>()
-    extractAllKeys(data, '', allKeys)
-    
-    // Calculate unused keys (only check root level keys for simplicity)
-    const rootKeys = Array.from(allKeys).filter(key => !key.includes('.'))
-    const unused = rootKeys.filter(key => !usedKeys.has(key))
-    const missing = Array.from(missingKeys)
+    // Use conservative matching: exact match and simple context-aware matching
+    const unused = [...jsonPaths].filter(path => !isPathUsedConservatively(path, templateVars))
+    const missing = [...templateVars].filter(path => !jsonPaths.has(path))
     
     return { unused, missing }
   } catch (error) {
@@ -32,192 +23,103 @@ export const analyzeUsage = (jsonData: string, template: string): AnalysisResult
   }
 }
 
-const extractVariablesWithContext = (
-  tokens: any[],
-  usedKeys: Set<string>,
-  missingKeys: Set<string>,
-  rootData: any,
-  currentContext: any,
-  contextPath: string
-): void => {
+function isPathUsedConservatively(jsonPath: string, templateVars: Set<string>): boolean {
+  // Direct match
+  if (templateVars.has(jsonPath)) {
+    return true
+  }
+  
+  // Conservative context matching: only match if the json path suffix 
+  // matches a template variable AND there's a clear context that exists
+  const jsonParts = jsonPath.split('.')
+  
+  for (const templateVar of templateVars) {
+    const templateParts = templateVar.split('.')
+    
+    // Simple suffix matching for nested contexts
+    if (templateParts.length < jsonParts.length) {
+      const jsonSuffix = jsonParts.slice(-templateParts.length).join('.')
+      if (jsonSuffix === templateVar) {
+        // Check if the prefix forms a valid context
+        const contextPath = jsonParts.slice(0, jsonParts.length - templateParts.length).join('.')
+        if (templateVars.has(contextPath)) {
+          return true
+        }
+      }
+    }
+  }
+  
+  return false
+}
+
+function collectJsonPaths(obj: any, prefix = ''): Set<string> {
+  const paths = new Set<string>()
+  if (typeof obj !== 'object' || obj === null) return paths
+
+  if (Array.isArray(obj)) {
+    // For arrays, don't include numeric indices in paths
+    // Instead, process the first item to get the structure
+    if (obj.length > 0) {
+      // Recursively collect paths from the first array item
+      collectJsonPaths(obj[0], prefix).forEach(p => paths.add(p))
+    }
+  } else {
+    // For objects, process each property
+    for (const key in obj) {
+      const fullPath = prefix ? `${prefix}.${key}` : key
+      paths.add(fullPath)
+      if (typeof obj[key] === 'object') {
+        collectJsonPaths(obj[key], fullPath).forEach(p => paths.add(p))
+      }
+    }
+  }
+  return paths
+}
+
+function collectMustacheVars(template: string): Set<string> {
+  const tags = new Set<string>()
+  
+  try {
+    const tokens = Mustache.parse(template)
+    
+    // Process the tokens recursively to handle nested sections properly
+    parseTokensRecursively(tokens, [], tags)
+    
+  } catch (error) {
+    console.warn('Error parsing Mustache template:', error)
+  }
+  
+  return tags
+}
+
+function parseTokensRecursively(tokens: any[], contextStack: string[], tags: Set<string>): void {
   for (const token of tokens) {
     const [type, name, , , children] = token
     
-    if (isVariableToken(type)) {
-      handleVariableToken(name, currentContext, rootData, contextPath, usedKeys, missingKeys)
-    } else if (isSectionToken(type)) {
-      handleSectionToken(name, children, currentContext, rootData, contextPath, usedKeys, missingKeys)
+    if (type === '#' || type === '^') {
+      // Section - mark the section variable itself as used (the array/list)
+      const sectionPath = [...contextStack, name].filter(Boolean).join('.')
+      tags.add(sectionPath)
+      
+      // Process children with this context
+      const newStack = [...contextStack, name]
+      if (children && children.length > 0) {
+        parseTokensRecursively(children, newStack, tags)
+      }
+    } else if (type === 'name' || type === '&') {
+      if (name === '.') {
+        // Current context reference - mark the current context as used
+        if (contextStack.length > 0) {
+          const currentContext = contextStack.join('.')
+          tags.add(currentContext)
+        }
+      } else {
+        // Variable - add with current context
+        const fullPath = [...contextStack, name].filter(Boolean).join('.')
+        tags.add(fullPath)
+      }
     }
   }
 }
 
-const isVariableToken = (type: string): boolean => {
-  return type === 'name' || type === '&' || type === '{'
-}
 
-const isSectionToken = (type: string): boolean => {
-  return type === '#' || type === '^'
-}
-
-const handleVariableToken = (
-  name: string,
-  currentContext: any,
-  rootData: any,
-  contextPath: string,
-  usedKeys: Set<string>,
-  missingKeys: Set<string>
-): void => {
-  const resolved = resolveVariable(name, currentContext, rootData, contextPath)
-  
-  if (resolved.found) {
-    usedKeys.add(resolved.path)
-  } else {
-    missingKeys.add(resolved.path)
-  }
-}
-
-const handleSectionToken = (
-  name: string,
-  children: any[],
-  currentContext: any,
-  rootData: any,
-  contextPath: string,
-  usedKeys: Set<string>,
-  missingKeys: Set<string>
-): void => {
-  const sectionResolved = resolveVariable(name, currentContext, rootData, contextPath)
-  
-  if (sectionResolved.found) {
-    usedKeys.add(sectionResolved.path)
-  } else {
-    missingKeys.add(sectionResolved.path)
-  }
-  
-  if (children) {
-    if (sectionResolved.found) {
-      processSectionChildren(children, sectionResolved, rootData, usedKeys, missingKeys)
-    } else {
-      // Section variable not found, but still process children with current context
-      extractVariablesWithContext(children, usedKeys, missingKeys, rootData, currentContext, contextPath)
-    }
-  }
-}
-
-const processSectionChildren = (
-  children: any[],
-  sectionResolved: { found: boolean; value: any; path: string },
-  rootData: any,
-  usedKeys: Set<string>,
-  missingKeys: Set<string>
-): void => {
-  const sectionValue = sectionResolved.value
-  
-  if (Array.isArray(sectionValue)) {
-    processArraySection(children, sectionValue, sectionResolved.path, rootData, usedKeys, missingKeys)
-  } else if (typeof sectionValue === 'object' && sectionValue !== null) {
-    processObjectSection(children, sectionValue, sectionResolved.path, rootData, usedKeys, missingKeys)
-  } else if (sectionValue) {
-    // For truthy primitives, keep current context - this needs the current context passed down
-    // For now, use root data as fallback
-    extractVariablesWithContext(children, usedKeys, missingKeys, rootData, rootData, '')
-  }
-}
-
-const processArraySection = (
-  children: any[],
-  sectionValue: any[],
-  sectionPath: string,
-  rootData: any,
-  usedKeys: Set<string>,
-  missingKeys: Set<string>
-): void => {
-  if (sectionValue.length > 0) {
-    // Use first item as representative context
-    const itemContext = sectionValue[0]
-    extractVariablesWithContext(children, usedKeys, missingKeys, rootData, itemContext, sectionPath)
-  }
-}
-
-const processObjectSection = (
-  children: any[],
-  sectionValue: object,
-  sectionPath: string,
-  rootData: any,
-  usedKeys: Set<string>,
-  missingKeys: Set<string>
-): void => {
-  extractVariablesWithContext(children, usedKeys, missingKeys, rootData, sectionValue, sectionPath)
-}
-
-const resolveVariable = (
-  variableName: string,
-  currentContext: any,
-  rootData: any,
-  contextPath: string
-): { found: boolean; value: any; path: string } => {
-  const parts = variableName.split('.')
-  
-  // First try to resolve in current context
-  let current = currentContext
-  let found = true
-  
-  for (const part of parts) {
-    if (current === null || current === undefined || typeof current !== 'object') {
-      found = false
-      break
-    }
-    if (!(part in current)) {
-      found = false
-      break
-    }
-    current = current[part]
-  }
-  
-  if (found) {
-    // Variable found in current context
-    const fullPath = contextPath ? `${contextPath}.${variableName}` : variableName
-    return { found: true, value: current, path: fullPath }
-  }
-  
-  // If not found in current context, try root context
-  current = rootData
-  found = true
-  
-  for (const part of parts) {
-    if (current === null || current === undefined || typeof current !== 'object') {
-      found = false
-      break
-    }
-    if (!(part in current)) {
-      found = false
-      break
-    }
-    current = current[part]
-  }
-  
-  if (found) {
-    // Variable found in root context
-    return { found: true, value: current, path: variableName }
-  }
-  
-  // Variable not found anywhere
-  const assumedPath = contextPath ? `${contextPath}.${variableName}` : variableName
-  return { found: false, value: undefined, path: assumedPath }
-}
-
-const extractAllKeys = (obj: any, prefix: string, keys: Set<string>): void => {
-  if (typeof obj !== 'object' || obj === null) return
-  
-  if (Array.isArray(obj)) {
-    // For arrays, we care about the structure of items, not indices
-    if (obj.length > 0) {
-      extractAllKeys(obj[0], prefix, keys)
-    }
-  } else {
-    Object.keys(obj).forEach(key => {
-      const fullKey = prefix ? `${prefix}.${key}` : key
-      keys.add(fullKey)
-      extractAllKeys(obj[key], fullKey, keys)
-    })
-  }
-}
