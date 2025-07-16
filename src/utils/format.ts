@@ -77,54 +77,27 @@ export const formatMustache = (template: string): string => {
 }
 
 // Fallback function for non-JSON Mustache templates
-const formatMustacheAsTemplate = (template: string): string => {
+export const formatMustacheAsTemplate = (template: string): string => {
   const lines = template.split(/\r?\n/)
   let indentationLevel = 0
   const formatted: string[] = []
 
   for (const line of lines) {
     const trimmed = line.trim()
-    if (!trimmed) {
-      formatted.push('')
-      continue
-    }
+    if (!trimmed) continue // Remove empty lines
 
-    // Decrease indentation for closing tags
-    if (trimmed.startsWith('{{/')) {
+    if (trimmed.startsWith('}') || trimmed.startsWith(']')) {
       indentationLevel = Math.max(indentationLevel - 1, 0)
     }
-    
-    // Handle {{else}} tags
-    if (trimmed.startsWith('{{else}}') || trimmed.startsWith('{{ else }}')) {
-      const tempIndent = Math.max(indentationLevel - 1, 0)
-      formatted.push(`${'  '.repeat(tempIndent)}{{else}}`)
-      continue
-    }
 
-    // Add current line with proper indentation
-    formatted.push(`${'  '.repeat(indentationLevel)}${cleanMustacheSpacing(trimmed)}`)
+    formatted.push(`${'  '.repeat(indentationLevel)}${trimmed}`)
 
-    // Increase indentation for opening tags
-    if (trimmed.startsWith('{{#') || trimmed.startsWith('{{^')) {
+    if (trimmed.endsWith('{') || trimmed.endsWith('[')) {
       indentationLevel++
     }
   }
 
   return formatted.join('\n')
-}
-
-// Helper function to clean up Mustache tag spacing
-const cleanMustacheSpacing = (line: string): string => {
-  return line
-    // Add spaces inside mustache tags for readability
-    .replace(/\{\{([^{}]+)\}\}/g, (_, content) => {
-      const cleaned = content.trim()
-      // Don't add extra spaces for certain patterns
-      if (cleaned.startsWith('#') || cleaned.startsWith('/') || cleaned.startsWith('^') || cleaned === 'else') {
-        return `{{${cleaned}}}`
-      }
-      return `{{ ${cleaned} }}`
-    })
 }
 
 export const formatSchema = (schema: string): string => {

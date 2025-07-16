@@ -208,7 +208,7 @@ import { useSessionStore } from '@/stores/session'
 import { renderTemplate } from '@/utils/render'
 import { validateJSON as validateJSONSchema } from '@/utils/validate'
 import { analyzeUsage, type AnalysisResult } from '@/utils/analysis'
-import { formatJSON, formatMustache, formatSchema } from '@/utils/format'
+import { formatJSON, formatMustacheAsTemplate, formatSchema } from '@/utils/format'
 import { exportSession as exportZip } from '@/utils/zip'
 import { useKeyboard } from '@/hooks/useKeyboard'
 import { debounce } from '@/utils/debounce'
@@ -280,7 +280,8 @@ const formatCard = (cardType: string) => {
         store.json = formatJSON(store.json)
         break
       case 'template':
-        store.template = formatMustache(store.template)
+        // For Mustache templates, use template formatting, not JSON formatting
+        store.template = formatMustacheAsTemplate(store.template)
         break
       case 'schema':
         store.schema = formatSchema(store.schema)
@@ -359,10 +360,9 @@ const validateCard = (cardType: 'json' | 'template' | 'output' | 'schema') => {
     
     try {
       if (cardType === 'template') {
-        // For Mustache templates, we validate if it's valid JSON structure
-        // but allow Mustache syntax within string values
+        // For Mustache templates, just check basic syntax validity
         validateMustacheTemplate(content)
-        store.showError(`✅ ${cardName} is valid!`)
+        store.showError(`✅ ${cardName} syntax is valid!`)
       } else {
         // For JSON validation
         JSON.parse(content)
@@ -392,16 +392,55 @@ const validateCard = (cardType: 'json' | 'template' | 'output' | 'schema') => {
 }
 
 const validateMustacheTemplate = (template: string) => {
-  // Check if it's a valid JSON structure with Mustache placeholders
-  // We'll temporarily replace Mustache placeholders with valid JSON values
-  const tempTemplate = template
-    .replace(/\{\{[^}]+\}\}/g, '"__PLACEHOLDER__"') // Replace {{var}} with placeholder
-    .replace(/\{\{\{[^}]+\}\}\}/g, '"__PLACEHOLDER__"') // Replace {{{var}}} with placeholder
-    .replace(/\{\{#[^}]+\}\}[\s\S]*?\{\{\/[^}]+\}\}/g, '"__PLACEHOLDER__"') // Replace {{#each}} blocks
-    .replace(/\{\{\^[^}]+\}\}[\s\S]*?\{\{\/[^}]+\}\}/g, '"__PLACEHOLDER__"') // Replace {{^if}} blocks
+  // Basic Mustache syntax validation
   
-  // Now validate as JSON
-  JSON.parse(tempTemplate)
+  // Check for unmatched opening braces
+  const openBraces = (template.match(/\{\{/g) || []).length
+  const closeBraces = (template.match(/\}\}/g) || []).length
+  
+  if (openBraces !== closeBraces) {
+    throw new Error(`Unmatched braces: ${openBraces} opening {{ but ${closeBraces} closing }}`)
+  }
+  
+  // Check for unmatched triple braces
+  const openTripleBraces = (template.match(/\{\{\{/g) || []).length
+  const closeTripleBraces = (template.match(/\}\}\}/g) || []).length
+  
+  if (openTripleBraces !== closeTripleBraces) {
+    throw new Error(`Unmatched triple braces: ${openTripleBraces} opening {{{ but ${closeTripleBraces} closing }}}`)
+  }
+  
+  // Check for unmatched section tags
+  const sectionTags = template.match(/\{\{[#^]/g) || []
+  const closingTags = template.match(/\{\{\//g) || []
+  
+  if (sectionTags.length !== closingTags.length) {
+    throw new Error(`Unmatched section tags: ${sectionTags.length} opening sections but ${closingTags.length} closing tags`)
+  }
+  
+  // Check for proper section tag pairing
+  const stack: string[] = []
+  const regex = /\{\{([#^])([^}]+)\}\}|\{\{\/([^}]+)\}\}/g
+  let match
+  
+  while ((match = regex.exec(template)) !== null) {
+    if (match[1]) {
+      // Opening tag
+      stack.push(match[2].trim())
+    } else if (match[3]) {
+      // Closing tag
+      const expected = stack.pop()
+      const actual = match[3].trim()
+      if (expected !== actual) {
+        throw new Error(`Mismatched section tags: opened with {{#${expected}}} but closed with {{/${actual}}}`)
+      }
+    }
+  }
+  
+  if (stack.length > 0) {
+    const unclosedTags = stack.map(tag => '{{#' + tag + '}}').join(', ')
+    throw new Error(`Unclosed section tags: ${unclosedTags}`)
+  }
 }
 
 const findErrorLine = (content: string, errorMessage: string): number => {
