@@ -208,7 +208,7 @@ import { useSessionStore } from '@/stores/session'
 import { renderTemplate } from '@/utils/render'
 import { validateJSON as validateJSONSchema } from '@/utils/validate'
 import { analyzeUsage, type AnalysisResult } from '@/utils/analysis'
-import { formatJSON, formatMustacheAsTemplate, formatSchema } from '@/utils/format'
+import { formatJSON, formatMustache, formatMustacheAsTemplate, formatSchema } from '@/utils/format'
 import { exportSession as exportZip } from '@/utils/zip'
 import { useKeyboard } from '@/hooks/useKeyboard'
 import { debounce } from '@/utils/debounce'
@@ -275,21 +275,32 @@ const toggleMaximise = (cardId: string) => {
 
 const formatCard = (cardType: string) => {
   try {
+    const formatOptions = {
+      tabSize: 2,
+      insertSpaces: true,
+      eol: '\n'
+    }
+
     switch (cardType) {
       case 'json':
-        store.json = formatJSON(store.json)
+        store.json = formatJSON(store.json, formatOptions)
         break
       case 'template':
-        // For Mustache templates, use template formatting, not JSON formatting
-        store.template = formatMustacheAsTemplate(store.template)
+        // For Mustache templates, try intelligent JSON-aware formatting first
+        try {
+          store.template = formatMustache(store.template, formatOptions)
+        } catch {
+          // Fall back to basic template formatting if JSON-aware fails
+          store.template = formatMustacheAsTemplate(store.template)
+        }
         break
       case 'schema':
-        store.schema = formatSchema(store.schema)
+        store.schema = formatSchema(store.schema, formatOptions)
         break
       case 'output':
         if (store.output) {
           try {
-            store.output = formatJSON(store.output)
+            store.output = formatJSON(store.output, formatOptions)
           } catch {
             // Output might not be JSON, ignore
           }
