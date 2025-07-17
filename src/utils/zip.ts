@@ -4,8 +4,7 @@ import { saveAs } from 'file-saver'
 export const exportSession = async (
   json: string,
   template: string,
-  output: string,
-  schema: string
+  output: string
 ): Promise<void> => {
   try {
     const zip = new JSZip()
@@ -13,7 +12,6 @@ export const exportSession = async (
     zip.file('mock-data.json', json)
     zip.file('template.mustache', template)
     zip.file('output.json', output)
-    zip.file('schema.json', schema)
     
     const blob = await zip.generateAsync({ type: 'blob' })
     saveAs(blob, 'mustache-session.zip')

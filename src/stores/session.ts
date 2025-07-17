@@ -6,7 +6,6 @@ export interface SessionState {
   json: string
   template: string
   output: string
-  schema: string
   maximisedCard: string | null
   errors: string[]
 }
@@ -62,24 +61,6 @@ export const useSessionStore = defineStore('session', () => {
 
   const output = ref('')
   
-  const schema = ref(`{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "properties": {
-    "name": {
-      "type": "string"
-    },
-    "age": {
-      "type": "number"
-    },
-    "email": {
-      "type": "string",
-      "format": "email"
-    }
-  },
-  "required": ["name", "age", "email"]
-}`)
-
   const maximisedCard = ref<string | null>(null)
   const errors = ref<string[]>([])
 
@@ -100,15 +81,6 @@ export const useSessionStore = defineStore('session', () => {
           }
         }
         
-        if (data.schema) {
-          try {
-            JSON.parse(data.schema)
-            schema.value = data.schema
-          } catch (e) {
-            console.warn('Invalid schema in localStorage, using default:', e)
-          }
-        }
-        
         template.value = data.template || template.value
         output.value = data.output || output.value
       }
@@ -123,8 +95,7 @@ export const useSessionStore = defineStore('session', () => {
       const data = {
         json: json.value,
         template: template.value,
-        output: output.value,
-        schema: schema.value
+        output: output.value
       }
       localStorage.setItem('mustache-session', JSON.stringify(data))
     } catch (e) {
@@ -133,7 +104,7 @@ export const useSessionStore = defineStore('session', () => {
   }, 300)
 
   // Watch for changes and save
-  watch([json, template, output, schema], saveToStorage, { deep: true })
+  watch([json, template, output], saveToStorage, { deep: true })
 
   const showError = (message: string) => {
     errors.value.push(message)
@@ -198,23 +169,6 @@ export const useSessionStore = defineStore('session', () => {
   }{{/organisms.org8.items}}{{^organisms.org8.items}}null{{/organisms.org8.items}}
 }`
       output.value = ''
-      schema.value = `{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "properties": {
-    "name": {
-      "type": "string"
-    },
-    "age": {
-      "type": "number"
-    },
-    "email": {
-      "type": "string",
-      "format": "email"
-    }
-  },
-  "required": ["name", "age", "email"]
-}`
       clearErrors()
     } catch (e) {
       console.warn('Failed to clear localStorage:', e)
@@ -232,7 +186,6 @@ export const useSessionStore = defineStore('session', () => {
     json,
     template,
     output,
-    schema,
     maximisedCard,
     errors,
     showError,
